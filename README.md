@@ -12,6 +12,10 @@
 
 ---
 
+<p align="center">
+  <img src="images/colour-wheel.png" width="850" alt="Obsidian graph arranged as a filled colour wheel, with neighbouring groups of pastel notes">
+</p>
+
 Notes start beside their colour group, larger groups get more room, and new
 notes join their neighbours without resetting the whole layout.
 

@@ -13,6 +13,7 @@ INSTALL_FILES = ("main.js", "manifest.json", "LICENSE")
 SOURCE_FILES = (
     *INSTALL_FILES,
     "README.md",
+    "images/colour-wheel.png",
     "package.json",
     "versions.json",
     ".gitignore",
