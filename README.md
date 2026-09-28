@@ -1,8 +1,19 @@
-# Graph Colour Spawn
+<h1 align="center">Graph Colour Spawn</h1>
 
-A living colour wheel for Obsidian's graph. Notes start beside their colour
-group, larger groups get more room, and new notes join their neighbours without
-resetting the whole layout.
+<p align="center">
+  <em>A living colour wheel for Obsidian. New notes join their neighbours.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.2.0-111111?style=flat-square" alt="Version 1.2.0">
+  <img src="https://img.shields.io/badge/dependencies-none-111111?style=flat-square" alt="No dependencies">
+  <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="MIT licence">
+</p>
+
+---
+
+Notes start beside their colour group, larger groups get more room, and new
+notes join their neighbours without resetting the whole layout.
 
 Plain JavaScript. No build step, account, API key or external service.
 
@@ -39,6 +50,14 @@ the plugin adding or removing those specific groups; palette normalisation
 still applies.
 
 ## Install
+
+Clone the repository straight into your vault's plugin directory:
+
+```sh
+git clone https://github.com/tjqscott/obsidian-graph-colour-spawn.git <vault>/.obsidian/plugins/graph-colour-spawn
+```
+
+Or use the install ZIP:
 
 1. Close Obsidian and keep a copy of your vault's `.obsidian/graph.json` if you
    want to restore your current colours later.

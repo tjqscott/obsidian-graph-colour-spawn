@@ -6,6 +6,13 @@
   "main": "main.js",
   "license": "MIT",
   "author": "Taylor Scott",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tjqscott/obsidian-graph-colour-spawn.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tjqscott/obsidian-graph-colour-spawn/issues"
+  },
   "engines": {
     "node": ">=24"
   },
