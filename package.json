@@ -1,0 +1,16 @@
+{
+  "name": "obsidian-graph-colour-spawn",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Population-aware colour wheels and incremental note placement for Obsidian graphs.",
+  "main": "main.js",
+  "license": "MIT",
+  "author": "Taylor Scott",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test tests/test-*.js",
+    "package": "python3 scripts/package.py"
+  }
+}
