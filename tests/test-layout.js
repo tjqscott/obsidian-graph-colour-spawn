@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const Module = require("module");
 const load = Module._load;
 Module._load = function (request, ...args) {
-  return request === "obsidian" ? { Plugin: class {}, Notice: class {} } : load.call(this, request, ...args);
+  return request === "obsidian" ? { Plugin: class {}, Notice: class {}, PluginSettingTab: class {}, Setting: class {} } : load.call(this, request, ...args);
 };
 const Plugin = require("../main.js");
 Module._load = load;

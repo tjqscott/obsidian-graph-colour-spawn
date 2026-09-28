@@ -3,7 +3,7 @@
 const Module = require("module");
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
-  if (request === "obsidian") return { Plugin: class {} };
+  if (request === "obsidian") return { Plugin: class {}, PluginSettingTab: class {}, Setting: class {} };
   return originalLoad.call(this, request, parent, isMain);
 };
 const Plugin = require("../main.js");
@@ -65,7 +65,7 @@ const linked = buildSessionLinkedPaths({
     "research/derived-output.md": 2,
   },
   "reference/ordinary.md": { "research/ignored.md": 1 },
-});
+}, "reference/sessions/");
 
 truthy(colourGroupsNeedNormalising(rawGroups), "duplicate palette needs repair");
 truthy(!colourGroupsNeedNormalising(repairedGroups), "repaired palette stays stable");
@@ -95,11 +95,14 @@ equal(
   false,
   "new group receives a stable palette colour"
 );
-truthy(graphConfigNeedsMerge({ colorGroups: [] }), "missing required groups need repair");
+const preset = { addGroups: ['path:"plans/"'], removeQueries: ['path:"home.md"'], sessionFolder: "reference/sessions/" };
+truthy(graphConfigNeedsMerge({ colorGroups: [] }, null, preset), "missing required groups need repair");
+equal(graphConfigNeedsMerge({ colorGroups: [] }), false, "no preset asks for no groups");
+equal(buildSessionLinkedPaths({ "reference/sessions/a.md": { "b.md": 1 } }).size, 0, "no session folder links nothing");
 truthy(
   graphConfigNeedsMerge({
     colorGroups: [{ query: 'path:"home.md"', color: { a: 1, rgb: 0 } }],
-  }),
+  }, null, preset),
   "obsolete groups need removal"
 );
 equal(sessionKey === normaliseColour(repairedRgb[0]), false, "session colour differs from first group");
