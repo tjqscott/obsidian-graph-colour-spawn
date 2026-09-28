@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.0-111111?style=flat-square" alt="Version 1.2.0">
+  <img src="https://img.shields.io/badge/version-1.3.0-111111?style=flat-square" alt="Version 1.3.0">
   <img src="https://img.shields.io/badge/dependencies-none-111111?style=flat-square" alt="No dependencies">
   <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="MIT licence">
 </p>
@@ -30,26 +30,24 @@ Plain JavaScript. No build step, account, API key or external service.
 It works with the global and local graph views. It changes graph settings and
 layout, but does not edit your notes or make network requests.
 
-## Current preset
+## Settings
 
-Version 1.2.0 packages the author's existing plugin, including its folder preset.
-It is not yet a configurable, general-purpose settings UI.
+All optional, and empty on a fresh install, so the plugin only recolours the
+groups your graph already has.
 
-On load, it adds graph groups for `plans/`, `tools/`, `scratch/`, root-level
-Markdown files and `tasks.base`, and removes the exact `path:"home.md"` group.
-It replaces configured group colours with its palette. A fresh installation
-also sets the initial graph scale to `0.03`.
+| Setting | Does |
+| --- | --- |
+| Colour groups to add | Group queries to keep present, one per line, such as `path:"notes/"`. |
+| Colour groups to remove | Exact group queries to delete from the graph, one per line. |
+| Session folder | Notes linked from this folder get a reserved yellow-orange colour when no group claims them. Empty turns it off. |
 
-Notes linked from `reference/sessions/` receive a reserved yellow-orange colour
-when they do not already match a supported path group. The folder names are
-presets only; no notes, personal settings or vault history are included.
-
-To adapt this preset, edit `SESSION_DIRECTORY`, `REQUIRED_COLOUR_GROUPS` and
-`REMOVED_QUERIES` near the top of `main.js`. Clearing the latter two arrays stops
-the plugin adding or removing those specific groups; palette normalisation
-still applies.
+Changes apply within 15 seconds, or run **Respawn colour wheel**. The plugin
+replaces configured group colours with its palette, and a fresh installation
+sets the initial graph scale to `0.03`.
 
 ## Install
+
+Once it is listed, install **Graph Colour Spawn** from Community plugins in Obsidian's settings. Until then:
 
 Clone the repository straight into your vault's plugin directory:
 
@@ -61,7 +59,7 @@ Or use the install ZIP:
 
 1. Close Obsidian and keep a copy of your vault's `.obsidian/graph.json` if you
    want to restore your current colours later.
-2. Extract `graph-colour-spawn-1.2.0.zip` into your vault's `.obsidian/plugins/`.
+2. Extract `graph-colour-spawn-1.3.0.zip` into your vault's `.obsidian/plugins/`.
    The resulting folder must be `.obsidian/plugins/graph-colour-spawn/` and
    contain `main.js` and `manifest.json`.
 3. Reopen Obsidian and enable **Graph Colour Spawn** in Community plugins.

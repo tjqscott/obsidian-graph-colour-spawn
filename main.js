@@ -31,7 +31,6 @@
 const obsidian = require("obsidian");
 
 const NEUTRAL_KEY = "neutral";
-const SESSION_DIRECTORY = "reference/sessions/";
 const PALETTE_SATURATION = 0.58;
 const PALETTE_LIGHTNESS = 0.74;
 const SESSION_LINKED_HUE = 36;
@@ -49,16 +48,25 @@ const MAX_RENDER_WEIGHT = (MAX_RENDER_RADIUS / 3) ** 2 - 1;
 const MIDDLE_RENDER_WEIGHT =
   Math.sqrt((MIN_RENDER_WEIGHT + 1) * (MAX_RENDER_WEIGHT + 1)) - 1;
 
-// Vault-specific colour groups the plugin keeps present through Obsidian's own
-// settings engine, because direct writes to graph.json race the running app.
-const REQUIRED_COLOUR_GROUPS = [
-  { query: 'path:"plans/"', rgb: 0xbde396 },
-  { query: 'path:"tools/"', rgb: 0xbde396 },
-  { query: 'path:"scratch/"', rgb: 0xbde396 },
-  { query: 'path:/^[^\\/]+\\.md$/', rgb: 0xbde396 },
-  { query: 'path:"tasks.base"', rgb: 0xe3d896 },
-];
-const REMOVED_QUERIES = ['path:"home.md"'];
+// Optional vault-specific setup, set in the plugin's settings. Groups to add
+// are kept present through Obsidian's own settings engine, because direct
+// writes to graph.json race the running app. All empty by default, so a new
+// install only recolours the groups the vault already has.
+const DEFAULT_PRESET = { addGroups: [], removeQueries: [], sessionFolder: "" };
+
+function readPreset(data) {
+  const lines = (value) =>
+    (Array.isArray(value) ? value : [])
+      .filter((line) => typeof line === "string" && line.trim())
+      .map((line) => line.trim());
+  const raw = data && typeof data.sessionFolder === "string" ? data.sessionFolder : "";
+  const folder = raw.trim().replace(/^\/+/, "");
+  return {
+    addGroups: lines(data && data.addGroups),
+    removeQueries: lines(data && data.removeQueries),
+    sessionFolder: folder && !folder.endsWith("/") ? `${folder}/` : folder,
+  };
+}
 
 function byte(value) {
   const number = Number(value);
@@ -212,12 +220,12 @@ function colourGroupsNeedNormalising(groups, counts = null) {
   });
 }
 
-function graphConfigNeedsMerge(config, counts = null) {
+function graphConfigNeedsMerge(config, counts = null, preset = DEFAULT_PRESET) {
   const groups = config && Array.isArray(config.colorGroups) ? config.colorGroups : [];
   if (colourGroupsNeedNormalising(groups, counts)) return true;
-  if (groups.some((group) => REMOVED_QUERIES.includes(group && group.query))) return true;
-  return REQUIRED_COLOUR_GROUPS.some(
-    (wanted) => !groups.some((group) => group && group.query === wanted.query)
+  if (groups.some((group) => preset.removeQueries.includes(group && group.query))) return true;
+  return preset.addGroups.some(
+    (query) => !groups.some((group) => group && group.query === query)
   );
 }
 
@@ -281,12 +289,12 @@ function normaliseVaultPath(value) {
     .replace(/#.*/, "");
 }
 
-function buildSessionLinkedPaths(resolvedLinks) {
+function buildSessionLinkedPaths(resolvedLinks, sessionFolder = "") {
   const paths = new Set();
-  if (!resolvedLinks || typeof resolvedLinks !== "object") return paths;
+  if (!sessionFolder || !resolvedLinks || typeof resolvedLinks !== "object") return paths;
 
   for (const [source, links] of Object.entries(resolvedLinks)) {
-    if (!normaliseVaultPath(source).startsWith(SESSION_DIRECTORY)) continue;
+    if (!normaliseVaultPath(source).startsWith(sessionFolder)) continue;
     for (const target of Object.keys(links || {})) {
       const path = normaliseVaultPath(target);
       if (path) paths.add(path);
@@ -551,9 +559,12 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
     });
     const savedData = (await this.loadData()) || {};
     const savedRepel = Number(savedData.repelStrength);
-    this.data = Number.isFinite(savedRepel)
-      ? { repelStrength: Math.max(0, Math.min(REPEL_SLIDER_MAX, savedRepel)), layoutVersion: savedData.layoutVersion }
-      : {};
+    this.data = {
+      ...(Number.isFinite(savedRepel)
+        ? { repelStrength: Math.max(0, Math.min(REPEL_SLIDER_MAX, savedRepel)), layoutVersion: savedData.layoutVersion }
+        : {}),
+      ...readPreset(savedData),
+    };
     await this.saveData(this.data);
 
     // Plugins load before the workspace restores its views, so a merge written
@@ -562,6 +573,8 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
     await this.mergeGraphConfig(this.data.layoutVersion !== 2);
     this.data.layoutVersion = 2;
     await this.saveData(this.data);
+
+    this.addSettingTab(new GraphColourSpawnSettingTab(this.app, this));
 
     this.addCommand({
       id: "respawn-colour-groups",
@@ -574,7 +587,7 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
 
     this.registerEvent(
       this.app.metadataCache.on("changed", (file) => {
-        if (normaliseVaultPath(file && file.path).startsWith(SESSION_DIRECTORY)) {
+        if (this.inSessionFolder(file && file.path)) {
           this.scheduleSessionLinkedPathsRefresh();
         }
       })
@@ -582,8 +595,8 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         if (
-          normaliseVaultPath(file && file.path).startsWith(SESSION_DIRECTORY) ||
-          normaliseVaultPath(oldPath).startsWith(SESSION_DIRECTORY)
+          this.inSessionFolder(file && file.path) ||
+          this.inSessionFolder(oldPath)
         ) {
           this.scheduleSessionLinkedPathsRefresh();
         }
@@ -591,7 +604,7 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (normaliseVaultPath(file && file.path).startsWith(SESSION_DIRECTORY)) {
+        if (this.inSessionFolder(file && file.path)) {
           this.scheduleSessionLinkedPathsRefresh();
         }
       })
@@ -614,6 +627,16 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
     );
   }
 
+  inSessionFolder(path) {
+    return Boolean(this.data.sessionFolder) && normaliseVaultPath(path).startsWith(this.data.sessionFolder);
+  }
+
+  async savePreset(patch) {
+    Object.assign(this.data, readPreset({ ...this.data, ...patch }));
+    await this.saveData(this.data);
+    this.refreshSessionLinkedPaths(false);
+  }
+
   scheduleSessionLinkedPathsRefresh() {
     if (this.sessionIndexTimer !== null) return;
     this.sessionIndexTimer = window.setTimeout(() => {
@@ -624,7 +647,7 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
 
   refreshSessionLinkedPaths(sweep = true) {
     try {
-      const next = buildSessionLinkedPaths(this.app.metadataCache.resolvedLinks);
+      const next = buildSessionLinkedPaths(this.app.metadataCache.resolvedLinks, this.data.sessionFolder);
       const changed =
         next.size !== this.sessionLinkedPaths.size ||
         [...next].some((path) => !this.sessionLinkedPaths.has(path));
@@ -675,12 +698,12 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
       const groups = Array.isArray(config.colorGroups) ? config.colorGroups : [];
 
       config.colorGroups = groups.filter(
-        (group) => !REMOVED_QUERIES.includes(group && group.query)
+        (group) => !this.data.removeQueries.includes(group && group.query)
       );
-      for (const wanted of REQUIRED_COLOUR_GROUPS) {
-        if (!config.colorGroups.some((group) => group && group.query === wanted.query)) {
+      for (const query of this.data.addGroups) {
+        if (!config.colorGroups.some((group) => group && group.query === query)) {
           config.colorGroups.push({
-            query: wanted.query,
+            query,
             color: { a: 1, rgb: 0 },
           });
         }
@@ -706,7 +729,7 @@ class GraphColourSpawnPlugin extends obsidian.Plugin {
       const configPath = `${this.app.vault.configDir}/graph.json`;
       const contents = await this.app.vault.adapter.read(configPath);
       let config = JSON.parse(contents);
-      if (graphConfigNeedsMerge(config, countColourGroups(config.colorGroups, this.app.vault.getFiles()))) {
+      if (graphConfigNeedsMerge(config, countColourGroups(config.colorGroups, this.app.vault.getFiles()), this.data)) {
         await this.mergeGraphConfig();
         config = JSON.parse(await this.app.vault.adapter.read(configPath));
       }
@@ -1000,5 +1023,48 @@ GraphColourSpawnPlugin._test = {
   wheelSectors,
   incrementalPayload,
 };
+
+class GraphColourSpawnSettingTab extends obsidian.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+
+  display() {
+    const { containerEl } = this;
+    const data = this.plugin.data;
+    const lines = (value) => value.split("\n").map((line) => line.trim()).filter(Boolean);
+    containerEl.empty();
+    containerEl.createEl("p", {
+      text: "Optional. Changes apply within 15 seconds, or run Respawn colour wheel.",
+    });
+
+    new obsidian.Setting(containerEl)
+      .setName("Colour groups to add")
+      .setDesc('Graph group queries to keep present, one per line, such as path:"notes/".')
+      .addTextArea((text) =>
+        text
+          .setValue(data.addGroups.join("\n"))
+          .onChange((value) => this.plugin.savePreset({ addGroups: lines(value) }))
+      );
+    new obsidian.Setting(containerEl)
+      .setName("Colour groups to remove")
+      .setDesc("Exact group queries to delete from the graph, one per line.")
+      .addTextArea((text) =>
+        text
+          .setValue(data.removeQueries.join("\n"))
+          .onChange((value) => this.plugin.savePreset({ removeQueries: lines(value) }))
+      );
+    new obsidian.Setting(containerEl)
+      .setName("Session folder")
+      .setDesc("Notes linked from this folder get their own colour when no group claims them. Leave empty to turn this off.")
+      .addText((text) =>
+        text
+          .setPlaceholder("reference/sessions/")
+          .setValue(data.sessionFolder)
+          .onChange((value) => this.plugin.savePreset({ sessionFolder: value }))
+      );
+  }
+}
 
 module.exports = GraphColourSpawnPlugin;
